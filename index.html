@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>HÉROE ROBOT DEL BOSQUE - EDICIÓN MÓVIL</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Patrick+Hand&family=Fredoka:wght@500;700&display=swap');
+    
+    body {
+      font-family: 'Patrick Hand', cursive, sans-serif;
+      background-color: #1a1e1d;
+      color: #333;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      overflow: hidden;
+    }
+
+    .font-handwriting {
+      font-family: 'Caveat', cursive;
+    }
+
+    .font-game {
+      font-family: 'Fredoka', sans-serif;
+    }
+
+    .paper-texture {
+      background-color: #f6f2e8;
+      background-image: radial-gradient(#dfd7c2 1px, transparent 0);
+      background-size: 16px 16px;
+      box-shadow: inset 0 0 40px rgba(139, 115, 85, 0.2);
+    }
+
+    .ink-border {
+      border: 3px solid #2d241e;
+      border-radius: 255px 15px 225px 15px/15px 225px 15px 255px;
+    }
+
+    /* ESTILO OPTIMIZADO PARA BOTONES TÁCTILES DE CELULAR */
+    .btn-touch {
+      background: #e8dfc8;
+      border: 3px solid #332922;
+      box-shadow: 0px 4px 0px #332922;
+      border-radius: 16px;
+      touch-action: manipulation;
+    }
+
+    .btn-touch:active {
+      transform: translateY(3px);
+      box-shadow: 0px 1px 0px #332922;
+      background: #d8ceb3;
+    }
+
+    canvas {
+      display: block;
+      margin: 0 auto;
+      max-width: 100%;
+      max-height: 55vh;
+      object-fit: contain;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-between p-1 sm:p-4 bg-slate-900 text-slate-100">
+
+  <div id="game-container" class="relative w-full max-w-5xl flex flex-col items-center h-full justify-between">
+    
+    <!-- BARRA SUPERIOR HUD -->
+    <div id="hud" class="w-full flex justify-between items-center mb-1 px-3 py-1.5 bg-amber-100 text-amber-950 rounded-xl border-2 border-amber-900 font-bold hidden text-xs sm:text-base">
+      <div class="flex items-center gap-2 sm:gap-4">
+        <div>🤖 <span id="hud-robot-name">ROBOT</span></div>
+        <div>🥚 <span id="hud-saved">0</span>/<span id="hud-target">5</span></div>
+        <div class="text-red-700 font-extrabold">⏱️ <span id="hud-timer">30</span>s</div>
+      </div>
+      <div class="text-right">
+        <div>⭐ <span id="hud-score">0</span></div>
+      </div>
+    </div>
+
+    <!-- LIENZO PRINCIPAL DEL JUEGO -->
+    <canvas id="gameCanvas" width="900" height="550" class="w-full border-2 sm:border-4 border-amber-950 bg-amber-50"></canvas>
+
+    <!-- CONTROLES TÁCTILES EN PANTALLA PARA CELULAR Y TABLET -->
+    <div id="touch-controls" class="w-full max-w-3xl flex justify-between items-center my-1 px-2">
+      <!-- D-PAD DIRECCIONAL -->
+      <div class="grid grid-cols-3 gap-1 w-36 h-36 sm:w-44 sm:h-44">
+        <div></div>
+        <button id="btn-up" class="btn-touch flex items-center justify-center text-amber-950 text-2xl font-black">▲</button>
+        <div></div>
+        <button id="btn-left" class="btn-touch flex items-center justify-center text-amber-950 text-2xl font-black">◀</button>
+        <button id="btn-down" class="btn-touch flex items-center justify-center text-amber-950 text-2xl font-black">▼</button>
+        <button id="btn-right" class="btn-touch flex items-center justify-center text-amber-950 text-2xl font-black">▶</button>
+      </div>
+
+      <!-- BOTÓN DE ACCIÓN / ATAQUE -->
+      <div class="flex flex-col items-center gap-2">
+        <button id="btn-action" class="btn-touch w-28 h-28 sm:w-36 sm:h-36 bg-amber-400 text-amber-950 font-bold text-lg sm:text-xl flex flex-col items-center justify-center">
+          <span class="text-2xl">⚡</span>
+          <span class="text-xs font-black">ACCIÓN / ATAQUE</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- GUÍA DE INSTRUCCIONES EN PANTALLAS GRANDES -->
+    <div id="controls-hint" class="text-center text-xs text-slate-400 hidden sm:block">
+      <b>CONTROLES EN PC:</b> FLECHAS = MOVERSE Y ESCALAR | <b>ESPACIO</b> = AGARRAR / ATACAR
+    </div>
+
+    <!-- MODALES DE SELECCIÓN Y ESTADO DEL JUEGO -->
+    <div id="overlay" class="absolute inset-0 paper-texture rounded-xl flex flex-col items-center justify-between p-3 sm:p-6 overflow-y-auto z-20">
+      
+      <!-- PANTALLA DE SELECCIÓN DE ROBOT -->
+      <div id="selection-screen" class="w-full flex flex-col items-center">
+        <div class="text-center mb-2 sm:mb-4">
+          <h1 class="text-3xl sm:text-5xl font-extrabold text-amber-950 font-handwriting tracking-wide">ROBOTS DEFENTORES DEL BOSQUE</h1>
+          <p class="text-amber-900 text-xs sm:text-base uppercase font-bold">¡TIENES 30 SECONDS PARA SALVAR LAS CRIATURAS DEL BOSQUE!</p>
+        </div>
+
+        <!-- CUADRÍCULA DE SELECCIÓN -->
+        <div id="robot-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-4 w-full mb-3 max-h-[55vh] overflow-y-auto p-1">
+          <!-- TARJETAS GENERADAS DINÁMICAMENTE -->
+        </div>
+
+        <button id="btn-start" class="px-6 py-2.5 sm:px-8 sm:py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-game text-lg sm:text-xl rounded-2xl border-2 border-emerald-950 shadow-lg transform active:scale-95 transition-all">
+          INICIAR MISIÓN
+        </button>
+      </div>
+
+      <!-- PANTALLA DE FIN DE JUEGO (VICTORIA O DERROTA) -->
+      <div id="game-over-screen" class="hidden my-auto text-center flex flex-col items-center gap-3">
+        <h2 id="game-over-title" class="text-4xl sm:text-5xl font-extrabold text-amber-950 font-handwriting">¡MISIÓN CUMPLIDA!</h2>
+        <p id="game-over-desc" class="text-base sm:text-xl text-amber-900 max-w-md uppercase font-bold">¡SALVASTE A TODAS LAS CRIATURAS DEL BOSQUE!</p>
+        <div class="text-xl sm:text-2xl text-amber-950 font-bold">PUNTAJE FINAL: <span id="final-score">0</span></div>
+        <button id="btn-restart" class="mt-2 px-6 py-2.5 sm:px-8 sm:py-3 bg-amber-700 hover:bg-amber-800 text-white font-game text-lg sm:text-xl rounded-2xl border-2 border-amber-950 shadow-lg transform active:scale-95 transition-all">
+          JUGAR DE NUEVO
+        </button>
+      </div>
+
+    </div>
+
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // ESTADO DE CONTROLES
+    const keys = {
+      left: false,
+      right: false,
+      up: false,
+      down: false,
+      space: false,
+      spacePressed: false
+    };
+
+    // ESTADO GENERAL DEL JUEGO
+    let gameState = 'SELECTION';
+    let selectedRobotIndex = 0;
+    let score = 0;
+    let savedCount = 0;
+    const TARGET_SAVED = 5;
+
+    // TEMPORIZADOR
+    let timeLeft = 30;
+    let timerInterval = null;
+
+    const ROBOT_SPECS = [
+      {
+        id: '02',
+        name: 'ROBOT 02 (PELIGRO)',
+        toolName: 'LÁSER PLASMA',
+        color: '#6b705c',
+        accent: '#e9c46a',
+        desc: 'VERDE OLIVA A RAYAS DE PELIGRO. ESCALADOR RÁPIDO.',
+        weaponType: 'laser',
+        speed: 3.5,
+        climbSpeed: 3.2
+      },
+      {
+        id: '03',
+        name: 'ROBOT 03 (CÍCLOPE)',
+        toolName: 'ONDA DE PULSO',
+        color: '#a8b5b2',
+        accent: '#2a9d8f',
+        desc: 'TORSO GRIS CON LENTE AZUL. RUEDAS VELOCES.',
+        weaponType: 'pulse',
+        speed: 4.2,
+        climbSpeed: 2.5
+      },
+      {
+        id: '04',
+        name: 'ROBOT 04 (TRÍPODE)',
+        toolName: 'RAYO CONGELADOR',
+        color: '#7b92a5',
+        accent: '#e76f51',
+        desc: 'CÚPULA CON MANCHAS DE ÓXIDO Y PERISCOPIO.',
+        weaponType: 'freeze',
+        speed: 3.0,
+        climbSpeed: 3.5
+      },
+      {
+        id: '05',
+        name: 'ROBOT 05 (CAMUNFLADO)',
+        toolName: 'EXPLOSIÓN SÓNICA',
+        color: '#a38f78',
+        accent: '#264653',
+        desc: 'CAMUFLAJE Y 3 PATAS ARTICULADAS.',
+        weaponType: 'sonic',
+        speed: 3.2,
+        climbSpeed: 3.0
+      },
+      {
+        id: '06',
+        name: 'ROBOT 06 (PERISCOPIO)',
+        toolName: 'LANZA REDES',
+        color: '#b08968',
+        accent: '#e9c46a',
+        desc: 'CUELLO ALTO CON LUZ Y ALTO ALCANCE.',
+        weaponType: 'net',
+        speed: 3.4,
+        climbSpeed: 3.8
+      },
+      {
+        id: '07',
+        name: 'ROBOT 07 (GARRA BIO)',
+        toolName: 'SPRAY DE GAS',
+        color: '#ddb892',
+        accent: '#52b788',
+        desc: 'BEIGE CON BRAZOS VERDES Y OJO ROJO.',
+        weaponType: 'gas',
+        speed: 3.3,
+        climbSpeed: 3.3
+      },
+      {
+        id: '08',
+        name: 'ROBOT 08 (DOBLE DIAL)',
+        toolName: 'RAYO EMP',
+        color: '#5c524e',
+        accent: '#e63946',
+        desc: 'CUERPO OSCURO CON DOS DIALES (0 Y 8).',
+        weaponType: 'emp',
+        speed: 3.1,
+        climbSpeed: 3.1
+      },
+      {
+        id: 'OP',
+        name: 'ROBOT OP (EXPLORADOR)',
+        toolName: 'BENGALA',
+        color: '#4a5568',
+        accent: '#f4a261',
+        desc: 'CUELLO EN CURVA S Y INSIGNIA "OP".',
+        weaponType: 'flare',
+        speed: 3.8,
+        climbSpeed: 3.6
+      },
+      {
+        id: 'O1R',
+        name: 'ROBOT O1R (REMENDADO)',
+        toolName: 'CAMPO DE FUERZA',
+        color: '#d4c5b9',
+        accent: '#d62828',
+        desc: 'CUERPO CON COSTURAS Y MÚLTIPLES PATAS.',
+        weaponType: 'shield',
+        speed: 2.9,
+        climbSpeed: 3.4
+      }
+    ];
+
+    function drawInkLine(ctx, x1, y1, x2, y2, strokeColor = '#221c17', lineWidth = 2.5) {
+      ctx.save();
+      ctx.strokeStyle = strokeColor;
+      ctx.lineWidth = lineWidth;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      const midX = (x1 + x2) / 2 + (Math.random() - 0.5) * 2;
+      const midY = (y1 + y2) / 2 + (Math.random() - 0.5) * 2;
+
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.quadraticCurveTo(midX, midY, x2, y2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawWatercolorShape(ctx, pathCallback, fillColor, strokeColor = '#241b16', strokeWidth = 2.5) {
+      ctx.save();
+      ctx.fillStyle = fillColor;
+      ctx.beginPath();
+      pathCallback();
+      ctx.fill();
+
+      ctx.globalCompositeOperation = 'source-atop';
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
+      ctx.beginPath();
+      pathCallback();
+      ctx.fill();
+
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.strokeStyle = strokeColor;
+      ctx.lineWidth = strokeWidth;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      pathCallback();
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawCrossHatching(ctx, x, y, w, h, density = 4) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(40, 30, 20, 0.25)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < w; i += density) {
+        ctx.beginPath();
+        ctx.moveTo(x + i, y);
+        ctx.lineTo(x + i - 4, y + h);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function renderRobot(ctx, r, animTime, isWalking, isClimbing) {
+      ctx.save();
+      ctx.translate(r.x, r.y);
+      if (r.facing === -1) ctx.scale(-1, 1);
+
+      const legWalk = isWalking ? Math.sin(animTime * 10) * 8 : 0;
+      const climbArm = isClimbing ? Math.cos(animTime * 12) * 10 : 0;
+
+      switch(r.id) {
+        case '02':
+          for(let i = -1; i <= 1; i += 2) {
+            const legOffset = i * legWalk;
+            drawWatercolorShape(ctx, () => {
+              ctx.rect(i * 12 - 4, 15, 8, 25 + legOffset);
+            }, '#e9c46a');
+            ctx.fillStyle = '#1e1e1e';
+            ctx.fillRect(i * 12 - 4, 20, 8, 5);
+            ctx.fillRect(i * 12 - 4, 30, 8, 5);
+          }
+
+          drawWatercolorShape(ctx, () => ctx.roundRect(-22, -25, 44, 42, 6), '#6b705c');
+          drawWatercolorShape(ctx, () => {
+            ctx.rect(-28, -25, 8, 18);
+            ctx.rect(20, -25, 8, 18);
+          }, '#e9c46a');
+          drawWatercolorShape(ctx, () => ctx.roundRect(-14, -18, 28, 12, 3), '#1a1d20');
+
+          ctx.fillStyle = '#f4f1de';
+          ctx.font = 'bold 12px "Patrick Hand"';
+          ctx.fillText('02', -7, 8);
+          break;
+
+        case '03':
+          const wheelRot = animTime * 8;
+          ctx.save();
+          ctx.translate(-12, 22);
+          ctx.rotate(isWalking ? wheelRot : 0);
+          drawWatercolorShape(ctx, () => ctx.arc(0, 0, 10, 0, Math.PI * 2), '#8d99ae');
+          drawInkLine(ctx, -8, 0, 8, 0);
+          ctx.restore();
+
+          ctx.save();
+          ctx.translate(12, 22);
+          ctx.rotate(isWalking ? wheelRot : 0);
+          drawWatercolorShape(ctx, () => ctx.arc(0, 0, 10, 0, Math.PI * 2), '#8d99ae');
+          drawInkLine(ctx, -8, 0, 8, 0);
+          ctx.restore();
+
+          drawWatercolorShape(ctx, () => ctx.rect(-20, -24, 40, 42), '#a8b5b2');
+          drawWatercolorShape(ctx, () => ctx.rect(-18, -16, 36, 12), '#2b2d42');
+          drawWatercolorShape(ctx, () => ctx.arc(0, -10, 6, 0, Math.PI * 2), '#00b4d8');
+
+          ctx.fillStyle = '#2b2d42';
+          ctx.font = 'bold 14px "Patrick Hand"';
+          ctx.fillText('03', -7, 10);
+          break;
+
+        case '04':
+          const legAngles = [-20, -8, 8, 20];
+          legAngles.forEach((ang, idx) => {
+            const swing = isWalking ? Math.sin(animTime * 10 + idx) * 10 : 0;
+            ctx.save();
+            ctx.translate(ang, 10);
+            drawInkLine(ctx, 0, 0, ang * 0.8, 24 + swing, '#2a3439', 3);
+            ctx.restore();
+          });
+
+          drawInkLine(ctx, 0, -20, 0, -32, '#2a3439', 3);
+          drawWatercolorShape(ctx, () => ctx.arc(0, -34, 5, 0, Math.PI * 2), '#d62828');
+
+          drawWatercolorShape(ctx, () => {
+            ctx.arc(0, -2, 24, Math.PI, 0, false);
+            ctx.lineTo(24, 10);
+            ctx.lineTo(-24, 10);
+            ctx.closePath();
+          }, '#7b92a5');
+
+          ctx.fillStyle = '#b55837';
+          ctx.beginPath();
+          ctx.arc(-10, -8, 4, 0, Math.PI * 2);
+          ctx.arc(12, 2, 5, 0, Math.PI * 2);
+          ctx.fill();
+
+          drawWatercolorShape(ctx, () => ctx.arc(0, -4, 9, 0, Math.PI * 2), '#e76f51');
+          ctx.fillStyle = '#1e293b';
+          ctx.font = 'bold 12px "Patrick Hand"';
+          ctx.fillText('4', -3, 8);
+          break;
+
+        case '05':
+          [-16, 0, 16].forEach((xOff, i) => {
+            const legMove = isWalking ? Math.cos(animTime * 10 + i) * 6 : 0;
+            drawInkLine(ctx, xOff, 15, xOff + (i - 1) * 6, 32 + legMove, '#3a3027', 3);
+          });
+
+          drawInkLine(ctx, -8, -20, -8, -34, '#3a3027', 3);
+          drawInkLine(ctx, -8, -34, 2, -34, '#3a3027', 3);
+          drawWatercolorShape(ctx, () => ctx.arc(4, -34, 5, 0, Math.PI * 2), '#f4a261');
+
+          drawWatercolorShape(ctx, () => ctx.rect(-20, -20, 40, 36), '#a38f78');
+
+          ctx.fillStyle = '#5c4d3c';
+          ctx.beginPath();
+          ctx.arc(-8, -8, 6, 0, Math.PI * 2);
+          ctx.rect(4, -14, 10, 8);
+          ctx.fill();
+
+          drawWatercolorShape(ctx, () => ctx.arc(-10, 6, 4, 0, Math.PI * 2), '#e9c46a');
+
+          ctx.fillStyle = '#221c17';
+          ctx.font = 'bold 12px "Patrick Hand"';
+          ctx.fillText('25', 2, 8);
+          break;
+
+        case '06':
+          [-12, 12].forEach((xPos, i) => {
+            const swing = isWalking ? Math.sin(animTime * 8 + i * Math.PI) * 8 : 0;
+            const midX = xPos + (i === 0 ? -10 : 10);
+            drawInkLine(ctx, xPos, 15, midX, 28, '#2d241e', 3);
+            drawInkLine(ctx, midX, 28, xPos + swing, 40, '#2d241e', 3);
+          });
+
+          drawInkLine(ctx, 0, -22, 0, -42, '#2d241e', 3.5);
+          drawWatercolorShape(ctx, () => ctx.arc(0, -44, 7, Math.PI, 0), '#e9c46a');
+
+          ctx.save();
+          ctx.strokeStyle = '#d62828';
+          ctx.lineWidth = 1.8;
+          ctx.beginPath();
+          ctx.moveTo(-2, -38);
+          ctx.bezierCurveTo(-15, -30, -15, -10, -12, -2);
+          ctx.stroke();
+          ctx.restore();
+
+          drawWatercolorShape(ctx, () => ctx.roundRect(-18, -22, 36, 36, 8), '#b08968');
+
+          ctx.fillStyle = '#1e1712';
+          ctx.font = 'bold 15px "Patrick Hand"';
+          ctx.fillText('96', -8, 2);
+          break;
+
+        case '07':
+          [-16, 16].forEach((xPos, idx) => {
+            const move = isWalking ? Math.sin(animTime * 10 + idx) * 8 : 0;
+            drawInkLine(ctx, xPos, 18, xPos * 1.2, 34 + move, '#52b788', 3.5);
+          });
+
+          const armSwing = isClimbing ? climbArm : Math.sin(animTime * 6) * 4;
+          drawInkLine(ctx, -18, -6, -28, 2 + armSwing, '#52b788', 3);
+          drawInkLine(ctx, 18, -6, 28, 2 - armSwing, '#52b788', 3);
+
+          drawWatercolorShape(ctx, () => ctx.roundRect(-18, -24, 36, 42, 12), '#ddb892');
+          drawWatercolorShape(ctx, () => ctx.arc(0, -12, 6, 0, Math.PI * 2), '#e63946');
+
+          ctx.fillStyle = '#2b221b';
+          ctx.font = 'bold 14px "Patrick Hand"';
+          ctx.fillText('07', -7, 8);
+          break;
+
+        case '08':
+          [-14, 14].forEach((xPos, idx) => {
+            const swing = isWalking ? Math.cos(animTime * 9 + idx) * 7 : 0;
+            drawInkLine(ctx, xPos, 16, xPos + (idx === 0 ? -6 : 6), 35 + swing, '#2b221b', 3.5);
+          });
+
+          drawInkLine(ctx, 4, -20, 8, -34, '#2b221b', 3);
+          drawWatercolorShape(ctx, () => ctx.arc(12, -34, 4, 0, Math.PI * 2), '#e63946');
+
+          drawWatercolorShape(ctx, () => ctx.roundRect(-22, -22, 44, 40, 6), '#5c524e');
+          drawWatercolorShape(ctx, () => ctx.roundRect(-14, -16, 28, 30, 4), '#f4f1de');
+
+          drawWatercolorShape(ctx, () => ctx.arc(0, -8, 6, 0, Math.PI * 2), '#3d348b');
+          drawWatercolorShape(ctx, () => ctx.arc(0, 5, 6, 0, Math.PI * 2), '#3d348b');
+
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 9px sans-serif';
+          ctx.fillText('0', -2, -6);
+          ctx.fillText('8', -2, 7);
+          break;
+
+        case 'OP':
+          [-12, 12].forEach((xPos, idx) => {
+            const swing = isWalking ? Math.sin(animTime * 11 + idx) * 8 : 0;
+            drawInkLine(ctx, xPos, 14, xPos * 1.3, 34 + swing, '#1d242b', 3);
+          });
+
+          ctx.save();
+          ctx.strokeStyle = '#1d242b';
+          ctx.lineWidth = 3.5;
+          ctx.beginPath();
+          ctx.moveTo(0, -16);
+          ctx.bezierCurveTo(-15, -28, 15, -36, 0, -46);
+          ctx.stroke();
+          ctx.restore();
+
+          drawWatercolorShape(ctx, () => ctx.arc(0, -46, 6, 0, Math.PI * 2), '#ffb703');
+          drawWatercolorShape(ctx, () => ctx.arc(0, 0, 20, 0, Math.PI * 2), '#4a5568');
+          drawWatercolorShape(ctx, () => ctx.roundRect(-10, -6, 20, 14, 4), '#fefae0');
+
+          ctx.fillStyle = '#1d242b';
+          ctx.font = 'bold 11px "Patrick Hand"';
+          ctx.fillText('OP', -6, 5);
+          break;
+
+        case 'O1R':
+          [-18, -6, 6, 18].forEach((xPos, idx) => {
+            const swing = isWalking ? Math.sin(animTime * 12 + idx) * 6 : 0;
+            drawInkLine(ctx, xPos, 14, xPos + (idx % 2 === 0 ? -4 : 4), 30 + swing, '#322720', 2.5);
+          });
+
+          [-15, -5, 5, 15].forEach((xPos, i) => {
+            drawInkLine(ctx, xPos, -20, xPos * 1.4, -34, '#322720', 2.5);
+          });
+
+          drawInkLine(ctx, 0, -20, 0, -38, '#322720', 2);
+          drawWatercolorShape(ctx, () => ctx.arc(0, -38, 5, 0, Math.PI * 2), '#d62828');
+          drawWatercolorShape(ctx, () => ctx.roundRect(-24, -20, 48, 36, 8), '#d4c5b9');
+
+          drawCrossHatching(ctx, -10, -18, 20, 32, 6);
+
+          ctx.fillStyle = '#d62828';
+          ctx.font = 'bold 14px "Patrick Hand"';
+          ctx.fillText('01r', -10, 3);
+          break;
+      }
+
+      ctx.restore();
+    }
+
+    const TREE_POSITIONS = [150, 450, 750];
+    const PLATFORM_Y = 220;
+    const GROUND_Y = 470;
+
+    class Tree {
+      constructor(x) {
+        this.x = x;
+        this.trunkWidth = 45;
+        this.branchY = PLATFORM_Y;
+      }
+
+      draw(ctx) {
+        drawWatercolorShape(ctx, () => {
+          ctx.rect(this.x - this.trunkWidth / 2, 80, this.trunkWidth, GROUND_Y - 80);
+        }, '#7f5539');
+
+        for(let y = 100; y < GROUND_Y; y += 30) {
+          drawInkLine(ctx, this.x - 12, y, this.x + 10, y + 15, '#582f0e', 1.8);
+        }
+
+        drawWatercolorShape(ctx, () => {
+          ctx.arc(this.x, this.branchY - 40, 85, 0, Math.PI * 2);
+        }, '#3a5a40');
+
+        drawWatercolorShape(ctx, () => {
+          ctx.roundRect(this.x - 70, this.branchY, 140, 16, 8);
+        }, '#523a28');
+
+        ctx.fillStyle = '#a3b18a';
+        ctx.font = 'bold 14px "Patrick Hand"';
+        ctx.fillText('🪹 NIDO SEGURO', this.x - 45, this.branchY - 10);
+      }
+    }
+
+    class Predator {
+      constructor(x) {
+        this.x = x;
+        this.y = GROUND_Y - 15;
+        this.speed = (Math.random() * 1.2 + 0.8) * (Math.random() < 0.5 ? 1 : -1);
+        this.hp = 100;
+        this.fleeing = false;
+        this.stunTimer = 0;
+      }
+
+      update() {
+        if (this.stunTimer > 0) {
+          this.stunTimer--;
+          return;
+        }
+
+        if (this.fleeing) {
+          this.x += this.speed * 2.5;
+        } else {
+          this.x += this.speed;
+        }
+
+        if (this.x < 50 || this.x > 850) {
+          this.speed *= -1;
+        }
+      }
+
+      draw(ctx) {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        if (this.speed < 0) ctx.scale(-1, 1);
+
+        if (this.stunTimer > 0) {
+          ctx.fillStyle = '#ffd166';
+          ctx.font = 'bold 12px "Patrick Hand"';
+          ctx.fillText('⚡ ¡ATURDIDO!', -25, -35);
+        }
+
+        drawWatercolorShape(ctx, () => {
+          ctx.ellipse(0, 0, 22, 14, 0, 0, Math.PI * 2);
+        }, '#343a40');
+
+        drawWatercolorShape(ctx, () => {
+          ctx.arc(18, -6, 10, 0, Math.PI * 2);
+        }, '#212529');
+
+        ctx.fillStyle = '#ef233c';
+        ctx.beginPath();
+        ctx.arc(22, -8, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        const legAnim = Math.sin(Date.now() * 0.01) * 6;
+        drawInkLine(ctx, -10, 10, -12 + legAnim, 20, '#14171a', 2.5);
+        drawInkLine(ctx, 10, 10, 12 - legAnim, 20, '#14171a', 2.5);
+
+        ctx.restore();
+      }
+    }
+
+    class WildlifeItem {
+      constructor(x) {
+        this.x = x;
+        this.y = GROUND_Y - 10;
+        this.isCarried = false;
+        this.isSaved = false;
+        this.hatched = Math.random() < 0.4;
+      }
+
+      draw(ctx, animTime) {
+        if (this.isSaved) return;
+
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        if (!this.hatched) {
+          drawWatercolorShape(ctx, () => {
+            ctx.ellipse(0, 0, 9, 12, 0, 0, Math.PI * 2);
+          }, '#fefae0');
+          ctx.fillStyle = '#bc6c25';
+          ctx.fillRect(-2, -3, 2, 2);
+          ctx.fillRect(2, 2, 2, 2);
+        } else {
+          const hop = Math.abs(Math.sin(animTime * 6)) * 4;
+          ctx.translate(0, -hop);
+          drawWatercolorShape(ctx, () => {
+            ctx.arc(0, 0, 9, 0, Math.PI * 2);
+          }, '#dda15e');
+          drawWatercolorShape(ctx, () => ctx.arc(-4, -9, 3, 0, Math.PI * 2), '#bc6c25');
+          drawWatercolorShape(ctx, () => ctx.arc(4, -9, 3, 0, Math.PI * 2), '#bc6c25');
+          ctx.fillStyle = '#283618';
+          ctx.fillRect(-3, -2, 2, 2);
+          ctx.fillRect(1, -2, 2, 2);
+        }
+
+        ctx.restore();
+      }
+    }
+
+    class Player {
+      constructor(spec) {
+        this.spec = spec;
+        this.id = spec.id;
+        this.x = 450;
+        this.y = GROUND_Y - 15;
+        this.facing = 1;
+        this.carryingItem = null;
+        this.hp = 100;
+        this.onVine = false;
+        this.laserActive = false;
+        this.laserTimer = 0;
+      }
+
+      update(trees, items, predators) {
+        const speed = this.spec.speed;
+        const climbSpeed = this.spec.climbSpeed;
+        let isWalking = false;
+        let isClimbing = false;
+
+        let nearTree = trees.find(t => Math.abs(t.x - this.x) < 30);
+
+        if (keys.left) {
+          this.x -= speed;
+          this.facing = -1;
+          isWalking = true;
+        }
+        if (keys.right) {
+          this.x += speed;
+          this.facing = 1;
+          isWalking = true;
+        }
+
+        this.x = Math.max(30, Math.min(870, this.x));
+
+        if (nearTree) {
+          if (keys.up) {
+            this.y -= climbSpeed;
+            this.onVine = true;
+            isClimbing = true;
+            this.x = nearTree.x;
+          } else if (keys.down) {
+            this.y += climbSpeed;
+            this.onVine = true;
+            isClimbing = true;
+            this.x = nearTree.x;
+          }
+        } else {
+          this.onVine = false;
+        }
+
+        if (!this.onVine) {
+          if (this.y < GROUND_Y - 15) {
+            let onBranch = trees.some(t => Math.abs(t.x - this.x) < 70 && Math.abs(this.y - PLATFORM_Y) < 15);
+            if (!onBranch) {
+              this.y += 4;
+            } else {
+              this.y = PLATFORM_Y;
+            }
+          } else {
+            this.y = GROUND_Y - 15;
+          }
+        }
+
+        this.y = Math.min(GROUND_Y - 15, Math.max(PLATFORM_Y - 5, this.y));
+
+        if (keys.spacePressed) {
+          keys.spacePressed = false;
+          this.handleAction(items, predators);
+        }
+
+        if (this.carryingItem) {
+          this.carryingItem.x = this.x;
+          this.carryingItem.y = this.y - 35;
+
+          if (this.y <= PLATFORM_Y + 10) {
+            this.carryingItem.isSaved = true;
+            this.carryingItem.isCarried = false;
+            this.carryingItem = null;
+            savedCount++;
+            score += 200;
+            updateHUD();
+            if (savedCount >= TARGET_SAVED) {
+              triggerVictory();
+            }
+          }
+        }
+
+        if (this.laserTimer > 0) this.laserTimer--;
+
+        return { isWalking, isClimbing };
+      }
+
+      handleAction(items, predators) {
+        if (!this.carryingItem) {
+          let nearbyItem = items.find(i => !i.isSaved && !i.isCarried && Math.hypot(i.x - this.x, i.y - this.y) < 45);
+          if (nearbyItem) {
+            this.carryingItem = nearbyItem;
+            nearbyItem.isCarried = true;
+            return;
+          }
+        } else {
+          this.carryingItem.isCarried = false;
+          this.carryingItem = null;
+          return;
+        }
+
+        this.laserActive = true;
+        this.laserTimer = 20;
+
+        predators.forEach(p => {
+          if (Math.hypot(p.x - this.x, p.y - this.y) < 160) {
+            p.stunTimer = 90;
+            p.fleeing = true;
+            score += 50;
+            updateHUD();
+          }
+        });
+      }
+
+      drawToolEffect(ctx) {
+        if (this.laserTimer <= 0) return;
+
+        ctx.save();
+        ctx.translate(this.x, this.y - 10);
+        const dir = this.facing;
+
+        switch(this.spec.weaponType) {
+          case 'laser':
+            ctx.strokeStyle = '#ef233c';
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(dir * 180, 0);
+            ctx.stroke();
+            break;
+          case 'pulse':
+          case 'sonic':
+            ctx.strokeStyle = '#00b4d8';
+            ctx.lineWidth = 3;
+            for (let r = 20; r < 120; r += 25) {
+              ctx.beginPath();
+              ctx.arc(0, 0, r, -Math.PI / 4, Math.PI / 4);
+              ctx.stroke();
+            }
+            break;
+          case 'freeze':
+            ctx.fillStyle = 'rgba(144, 224, 239, 0.5)';
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(dir * 150, -40);
+            ctx.lineTo(dir * 150, 40);
+            ctx.closePath();
+            ctx.fill();
+            break;
+          default:
+            ctx.strokeStyle = '#ffd166';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(dir * 150, (Math.random() - 0.5) * 30);
+            ctx.stroke();
+            break;
+        }
+
+        ctx.restore();
+      }
+    }
+
+    let trees = TREE_POSITIONS.map(x => new Tree(x));
+    let predators = [new Predator(100), new Predator(780)];
+    let items = [
+      new WildlifeItem(220),
+      new WildlifeItem(380),
+      new WildlifeItem(580),
+      new WildlifeItem(700),
+      new WildlifeItem(820)
+    ];
+    let player = null;
+    let animTime = 0;
+
+    function initSelectionUI() {
+      const grid = document.getElementById('robot-grid');
+      grid.innerHTML = '';
+
+      ROBOT_SPECS.forEach((spec, idx) => {
+        const card = document.createElement('div');
+        card.className = `paper-texture ink-border p-2 flex flex-col items-center justify-between cursor-pointer transition-transform hover:scale-105 ${selectedRobotIndex === idx ? 'ring-4 ring-amber-700 bg-amber-100' : ''}`;
+        
+        card.onclick = () => {
+          selectedRobotIndex = idx;
+          initSelectionUI();
+        };
+
+        card.innerHTML = `
+          <canvas id="preview-${idx}" width="90" height="80" class="mb-1 bg-transparent"></canvas>
+          <div class="text-center">
+            <h3 class="font-bold text-amber-950 text-xs sm:text-base font-handwriting leading-tight uppercase">${spec.name}</h3>
+            <span class="inline-block mt-1 px-1.5 py-0.5 bg-amber-200 text-amber-950 font-bold text-[10px] sm:text-xs rounded border border-amber-800 uppercase">
+              ${spec.toolName}
+            </span>
+          </div>
+        `;
+
+        grid.appendChild(card);
+
+        setTimeout(() => {
+          const pCanvas = document.getElementById(`preview-${idx}`);
+          if (pCanvas) {
+            const pCtx = pCanvas.getContext('2d');
+            const dummyRobot = { id: spec.id, x: 45, y: 45, facing: 1 };
+            renderRobot(pCtx, dummyRobot, 0, false, false);
+          }
+        }, 10);
+      });
+    }
+
+    function setupControls() {
+      // CONTROLES DE TECLADO
+      window.addEventListener('keydown', (e) => {
+        if (gameState !== 'PLAYING') return;
+
+        if (e.key === 'ArrowLeft') { keys.left = true; e.preventDefault(); }
+        if (e.key === 'ArrowRight') { keys.right = true; e.preventDefault(); }
+        if (e.key === 'ArrowUp') { keys.up = true; e.preventDefault(); }
+        if (e.key === 'ArrowDown') { keys.down = true; e.preventDefault(); }
+        if (e.key === ' ' || e.code === 'Space') {
+          if (!keys.space) keys.spacePressed = true;
+          keys.space = true;
+          e.preventDefault();
+        }
+      });
+
+      window.addEventListener('keyup', (e) => {
+        if (e.key === 'ArrowLeft') keys.left = false;
+        if (e.key === 'ArrowRight') keys.right = false;
+        if (e.key === 'ArrowUp') keys.up = false;
+        if (e.key === 'ArrowDown') keys.down = false;
+        if (e.key === ' ' || e.code === 'Space') keys.space = false;
+      });
+
+      // SOPORTE MULTITÁCTIL MEJORADO PARA CELULARES
+      const bindTouch = (btnId, keyProp) => {
+        const btn = document.getElementById(btnId);
+        if (!btn) return;
+
+        const press = (e) => {
+          e.preventDefault();
+          if (keyProp === 'space') {
+            keys.spacePressed = true;
+            keys.space = true;
+          } else {
+            keys[keyProp] = true;
+          }
+        };
+
+        const release = (e) => {
+          e.preventDefault();
+          if (keyProp === 'space') keys.space = false;
+          else keys[keyProp] = false;
+        };
+
+        btn.addEventListener('touchstart', press, { passive: false });
+        btn.addEventListener('touchend', release, { passive: false });
+        btn.addEventListener('mousedown', press);
+        btn.addEventListener('mouseup', release);
+      };
+
+      bindTouch('btn-left', 'left');
+      bindTouch('btn-right', 'right');
+      bindTouch('btn-up', 'up');
+      bindTouch('btn-down', 'down');
+      bindTouch('btn-action', 'space');
+
+      document.getElementById('btn-start').onclick = startGame;
+      document.getElementById('btn-restart').onclick = resetToSelection;
+    }
+
+    function updateHUD() {
+      document.getElementById('hud-saved').innerText = savedCount;
+      document.getElementById('hud-target').innerText = TARGET_SAVED;
+      document.getElementById('hud-score').innerText = score;
+      document.getElementById('hud-timer').innerText = timeLeft;
+      if (player) {
+        document.getElementById('hud-robot-name').innerText = player.spec.name;
+      }
+    }
+
+    function startTimer() {
+      if (timerInterval) clearInterval(timerInterval);
+      timeLeft = 30;
+      updateHUD();
+
+      timerInterval = setInterval(() => {
+        if (gameState === 'PLAYING') {
+          timeLeft--;
+          updateHUD();
+          if (timeLeft <= 0) {
+            clearInterval(timerInterval);
+            triggerGameOver(false);
+          }
+        }
+      }, 1000);
+    }
+
+    function startGame() {
+      gameState = 'PLAYING';
+      savedCount = 0;
+      score = 0;
+
+      const spec = ROBOT_SPECS[selectedRobotIndex];
+      player = new Player(spec);
+
+      predators = [new Predator(120), new Predator(760)];
+      items = [
+        new WildlifeItem(200),
+        new WildlifeItem(360),
+        new WildlifeItem(540),
+        new WildlifeItem(680),
+        new WildlifeItem(810)
+      ];
+
+      document.getElementById('overlay').classList.add('hidden');
+      document.getElementById('hud').classList.remove('hidden');
+      
+      startTimer();
+    }
+
+    function triggerVictory() {
+      if (timerInterval) clearInterval(timerInterval);
+      triggerGameOver(true);
+    }
+
+    function triggerGameOver(won) {
+      gameState = 'GAMEOVER';
+      if (timerInterval) clearInterval(timerInterval);
+
+      document.getElementById('overlay').classList.remove('hidden');
+      document.getElementById('selection-screen').classList.add('hidden');
+      document.getElementById('game-over-screen').classList.remove('hidden');
+
+      const title = document.getElementById('game-over-title');
+      const desc = document.getElementById('game-over-desc');
+
+      if (won) {
+        title.innerText = '¡MISIÓN CUMPLIDA!';
+        desc.innerText = '¡SALVASTE A TODAS LAS CRIATURAS A TIEMPO!';
+      } else {
+        title.innerText = '¡TIEMPO AGOTADO!';
+        desc.innerText = 'EL TIEMPO SE RINDIÓ Y NO PUDISTE RESCATAR A TODOS.';
+      }
+
+      document.getElementById('final-score').innerText = score;
+    }
+
+    function resetToSelection() {
+      gameState = 'SELECTION';
+      if (timerInterval) clearInterval(timerInterval);
+      document.getElementById('game-over-screen').classList.add('hidden');
+      document.getElementById('selection-screen').classList.remove('hidden');
+      document.getElementById('hud').classList.add('hidden');
+      initSelectionUI();
+    }
+
+    function drawBackground() {
+      ctx.fillStyle = '#f6f2e8';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, 300);
+      skyGrad.addColorStop(0, '#e8d8c8');
+      skyGrad.addColorStop(1, '#f6f2e8');
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, canvas.width, 350);
+
+      drawWatercolorShape(ctx, () => {
+        ctx.moveTo(0, 380);
+        ctx.bezierCurveTo(180, 320, 350, 390, 500, 340);
+        ctx.bezierCurveTo(650, 300, 800, 370, 900, 330);
+        ctx.lineTo(900, GROUND_Y);
+        ctx.lineTo(0, GROUND_Y);
+        ctx.closePath();
+      }, '#b7b7a4');
+
+      drawWatercolorShape(ctx, () => {
+        ctx.rect(0, GROUND_Y, canvas.width, canvas.height - GROUND_Y);
+      }, '#6b705c');
+
+      for (let x = 20; x < canvas.width; x += 35) {
+        drawInkLine(ctx, x, GROUND_Y, x + 4, GROUND_Y - 12, '#3a5a40', 2);
+      }
+    }
+
+    function gameLoop() {
+      animTime += 0.05;
+
+      if (gameState === 'PLAYING') {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        drawBackground();
+        trees.forEach(t => t.draw(ctx));
+
+        predators.forEach(p => {
+          p.update();
+          p.draw(ctx);
+        });
+
+        items.forEach(item => item.draw(ctx, animTime));
+
+        if (player) {
+          const { isWalking, isClimbing } = player.update(trees, items, predators);
+          player.drawToolEffect(ctx);
+          renderRobot(ctx, player, animTime, isWalking, isClimbing);
+        }
+      }
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    window.onload = () => {
+      initSelectionUI();
+      setupControls();
+      requestAnimationFrame(gameLoop);
+    };
+  </script>
+</body>
+</html>
